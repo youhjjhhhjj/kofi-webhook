@@ -41,7 +41,8 @@ http.createServer(async function (request, response) {
                 return;
             }
             const email = jsonData.email.toLowerCase()
-            let query_result = await pgClient.query(`INSERT INTO Kofi.Payment ( create_time, username, email, payment_type_id, amount ) VALUES ( '${jsonData.timestamp}', '${jsonData.from_name}', '${email}', '${jsonData.type.split(' ').at(-1).charAt(0)}', ${parseFloat(jsonData.amount)} ) RETURNING payment_id`);
+            // let query_result = await pgClient.query(`INSERT INTO Kofi.Payment ( create_time, username, email, payment_type_id, amount ) VALUES ( '${jsonData.timestamp}', '${jsonData.from_name}', '${email}', '${jsonData.type.split(' ').at(-1).charAt(0)}', ${parseFloat(jsonData.amount)} ) RETURNING payment_id`);
+            let query_result = await pgClient.query('INSERT INTO Kofi.Payment ( create_time, username, email, payment_type_id, amount ) VALUES ( $1, $2, $3, $4, $5 ) RETURNING payment_id ;', [jsonData.timestamp, jsonData.from_name, email, jsonData.type.split(' ').at(-1).charAt(0), parseFloat(jsonData.amount)]);
             if (jsonData.type == 'Shop Order') {
                 let payment_id = query_result.rows[0].payment_id;
                 const insertValues = [];
@@ -50,7 +51,7 @@ http.createServer(async function (request, response) {
                         insertValues.push(`( ${payment_id}, '${product.direct_link_code}' )`);
                     }
                 };
-                pgClient.query(`INSERT INTO Kofi.Order VALUES ${insertValues.join(',')}`)
+                pgClient.query(`INSERT INTO Kofi.Order ( payment_id, product_id ) VALUES ${insertValues.join(',')}`)
             }
             else if (jsonData.type == 'Donation') {
                 const postData = JSON.stringify({
@@ -72,6 +73,8 @@ http.createServer(async function (request, response) {
     }
     catch (error) {
         console.error(error.stack);
+        response.writeHead(500);
+        response.end();
     }
 }).listen(PORT);
 console.log(`Server running on ${PORT}`);
